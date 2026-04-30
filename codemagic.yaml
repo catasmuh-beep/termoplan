@@ -4,11 +4,15 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 60
     environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.termoplan.app
       flutter: stable
       xcode: latest
       cocoapods: default
     scripts:
       - flutter pub get
-      - flutter build ipa --release
+      - xcode-project use-profiles --project ios/*.xcodeproj
+      - flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
