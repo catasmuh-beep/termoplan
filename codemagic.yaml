@@ -9,6 +9,6 @@ workflows:
       cocoapods: default
     scripts:
       - flutter pub get
-      - flutter build ipa --release --no-codesign
+      - flutter build ipa --release
     artifacts:
       - build/ios/ipa/*.ipa
