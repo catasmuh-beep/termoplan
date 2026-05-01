@@ -89,6 +89,19 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
     super.dispose();
   }
 
+
+  Rect _shareOrigin() {
+    final overlay = Overlay.maybeOf(context);
+    final renderObject = overlay?.context.findRenderObject() ?? context.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize) {
+      final size = renderObject.size;
+      if (size.width > 0 && size.height > 0) {
+        return Rect.fromLTWH(0, 0, size.width, size.height);
+      }
+    }
+    return const Rect.fromLTWH(1, 1, 1, 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = _RadiatorTheme();
@@ -1607,6 +1620,7 @@ double _insulationFactor(String value) {
           ),
         ],
         text: 'TermoPlan ile hazırladığım radyatör bazlı mevcut sistem raporunu paylaşıyorum.',
+        sharePositionOrigin: _shareOrigin(),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1628,8 +1642,7 @@ double _insulationFactor(String value) {
       final fileName =
           'termo_plan_radyator_oda_bazli_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
-     final box = context.findRenderObject() as RenderBox;
- 
+
      await Share.shareXFiles(
   [
     XFile.fromData(
@@ -1639,7 +1652,7 @@ double _insulationFactor(String value) {
     ),
   ],
   text: 'TermoPlan ile hazırladığım radyatör bazlı oda hesabı raporunu paylaşıyorum.',
-  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+  sharePositionOrigin: _shareOrigin(),
 );
     } catch (e) {
       if (!mounted) return;
@@ -2134,6 +2147,7 @@ double _insulationFactor(String value) {
               final panelText = _panelDimensionText(roomMeters);
 
               return Container(
+                width: double.infinity,
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -2141,48 +2155,63 @@ double _insulationFactor(String value) {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: theme.cardBorder),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Text(
-                        room.roomName,
-                        style: TextStyle(
-                          color: theme.textDark,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${room.heatNeedW} W',
-                          style: TextStyle(
-                            color: theme.turquoiseText,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
+                        Expanded(
+                          child: Text(
+                            room.roomName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: theme.textDark,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${roomMeters.toStringAsFixed(1)} m/tül',
-                          style: TextStyle(
-                            color: theme.purple,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          panelText,
-                          style: TextStyle(
-                            color: theme.textSoft,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11.8,
-                          ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${room.heatNeedW} W',
+                              style: TextStyle(
+                                color: theme.turquoiseText,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${roomMeters.toStringAsFixed(1)} m/tül',
+                              style: TextStyle(
+                                color: theme.purple,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        panelText,
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: theme.textSoft,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11.8,
+                        ),
+                      ),
                     ),
                   ],
                 ),
