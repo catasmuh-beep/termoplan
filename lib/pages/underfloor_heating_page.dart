@@ -1015,10 +1015,13 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
         name: 'termo_plan_yerden_isitma_${DateTime.now().millisecondsSinceEpoch}.pdf',
       );
 
-      await Share.shareXFiles(
-        [file],
-        text: 'TermoPlan yerden ısıtma PDF raporunu paylaşıyorum.',
-      );
+      final box = context.findRenderObject() as RenderBox;
+
+await Share.shareXFiles(
+  [file],
+  text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
+  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+);
     } catch (e) {
       if (!mounted) return;
 

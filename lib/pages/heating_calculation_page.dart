@@ -298,10 +298,13 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
         mimeType: 'application/pdf',
         name: 'termoplan_isitma_raporu.pdf',
       );
-      await Share.shareXFiles(
-        [file],
-        text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
-      );
+      final box = context.findRenderObject() as RenderBox;
+
+await Share.shareXFiles(
+  [file],
+  text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
+  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+);
     } catch (_) {
       if (!mounted) return;
       _showSnack('PDF paylaşılırken bir hata oluştu.');

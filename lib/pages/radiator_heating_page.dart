@@ -1628,16 +1628,19 @@ double _insulationFactor(String value) {
       final fileName =
           'termo_plan_radyator_oda_bazli_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
-      await Share.shareXFiles(
-        [
-          XFile.fromData(
-            Uint8List.fromList(bytes),
-            mimeType: 'application/pdf',
-            name: fileName,
-          ),
-        ],
-        text: 'TermoPlan ile hazırladığım radyatör bazlı oda hesabı raporunu paylaşıyorum.',
-      );
+     final box = context.findRenderObject() as RenderBox;
+ 
+     await Share.shareXFiles(
+  [
+    XFile.fromData(
+      Uint8List.fromList(bytes),
+      mimeType: 'application/pdf',
+      name: fileName,
+    ),
+  ],
+  text: 'TermoPlan ile hazırladığım radyatör bazlı oda hesabı raporunu paylaşıyorum.',
+  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+);
     } catch (e) {
       if (!mounted) return;
       _showSnack('PDF oluşturulamadı: $e');
