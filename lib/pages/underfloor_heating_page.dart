@@ -1019,7 +1019,7 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
 
 await Share.shareXFiles(
   [file],
-  text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
+  text: 'TermoPlan ile hazırladığım yerden ısıtma hesabı raporunu paylaşıyorum.',
   sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
 );
     } catch (e) {
@@ -1540,14 +1540,12 @@ String? _validateInputs() {
   Widget _buildHeroCard(_TermoTheme theme) {
   return ClipRRect(
     borderRadius: BorderRadius.circular(24),
-    child: Container(
-      height: 140,
-      width: double.infinity,
-      color: Colors.orange,
+    child: AspectRatio(
+      aspectRatio: 6.30,
       child: Image.asset(
         'assets/header/underfloor_header_clean.png',
-        fit: BoxFit.fitWidth,
-        alignment: Alignment.centerRight,
+        fit: BoxFit.cover,
+        width: double.infinity,
       ),
     ),
   );
