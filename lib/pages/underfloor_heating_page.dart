@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -995,7 +994,9 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     );
   }
 
-  Future<void> _generatePdf() async {
+  Future<void> _sharePdfReport() async {
+    FocusScope.of(context).unfocus();
+
     final error = _validateInputs();
     if (error != null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -1008,57 +1009,33 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     try {
       final engine = TermoPdfEngineImpl();
       final bytes = await engine.generate(_buildUnderfloorPdfData());
+      final file = XFile.fromData(
+        Uint8List.fromList(bytes),
+        mimeType: 'application/pdf',
+        name: 'termo_plan_yerden_isitma_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      );
 
-      await Printing.sharePdf(
-        bytes: Uint8List.fromList(bytes),
-        filename:
-            'termo_plan_yerden_isitma_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      await Share.shareXFiles(
+        [file],
+        text: 'TermoPlan yerden ısıtma PDF raporunu paylaşıyorum.',
       );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('PDF oluşturulamadı: $e'),
+          content: Text('PDF paylaşılırken bir hata oluştu: $e'),
         ),
       );
     }
   }
 
   Future<void> _shareCalculationSummary() async {
-    final error = _validateInputs();
-    if (error != null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
-      return;
-    }
-
-    final locationText = _selectedDistrict ?? _selectedRegion ?? '-';
-    final collectorText = _isDubleks
-        ? 'Kat 1: $_kat1CollectorCount ağız | Kat 2: $_kat2CollectorCount ağız'
-        : '$_roomBasedCollectorCount ağız';
-
-    final text = '''
-TermoPlan Yerden Isıtma Sonucu
-
-Toplam Alan: ${_formatNumber(_totalArea)} m²
-İl: ${_selectedCity ?? '-'}
-İlçe/Bölge: $locationText
-Toplam Boru: ${_formatNumber(_adjustedPipeLength)} mt
-Kollektör: $collectorText
-Hesaplanan Kapasite: $_calculatedCapacityText
-Önerilen Kapasite: $_recommendedCapacityText
-${_advisoryCapacityKw != null ? 'Tavsiye Edilen Üst Kapasite: $_advisoryCapacityText' : ''}
-
-TermoPlan ile hesaplanmıştır.
-''';
-
-    await Share.share(text);
+    await _sharePdfReport();
   }
 
   Future<void> _openExpertSupport() async {
+    FocusScope.of(context).unfocus();
     final uri = Uri.parse('https://wa.me/905307847260');
 
     try {
@@ -1141,6 +1118,7 @@ String? _validateInputs() {
 }
 
   void _calculateResults() {
+    FocusScope.of(context).unfocus();
     final error = _validateInputs();
     if (error != null) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -1185,8 +1163,11 @@ String? _validateInputs() {
   Widget build(BuildContext context) {
     final theme = _TermoTheme();
 
-    return Scaffold(
-      backgroundColor: theme.pageBg,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Scaffold(
+        backgroundColor: theme.pageBg,
       appBar: AppBar(
         toolbarHeight: 64,
         elevation: 0,
@@ -1550,7 +1531,7 @@ String? _validateInputs() {
           ],
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildHeroCard(_TermoTheme theme) {
@@ -2151,7 +2132,7 @@ String? _validateInputs() {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _generatePdf,
+              onPressed: _sharePdfReport,
               icon: const Icon(Icons.picture_as_pdf_rounded),
               label: const Text(
                 'PDF RAPOR',

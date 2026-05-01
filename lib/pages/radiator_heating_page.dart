@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -105,9 +104,12 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
           
         iconTheme: IconThemeData(color: theme.textDark),
       ),
-      body: SafeArea(
-        top: false,
-        child: Column(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _hideKeyboard,
+        child: SafeArea(
+          top: false,
+          child: Column(
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -148,6 +150,7 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
             ),
           ],
         ),
+      ),
       ),
     );
   }
@@ -403,6 +406,12 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
             label: 'PDF RAPORU OLUŞTUR',
             onPressed: _generateExistingPdf,
           ),
+          const SizedBox(height: 10),
+          _buildShareButton(
+            theme: theme,
+            label: 'PAYLAŞ',
+            onPressed: _generateExistingPdf,
+          ),
         ],
         const SizedBox(height: 14),
         _buildExpertSupportButton(theme),
@@ -656,6 +665,12 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
             label: 'PDF RAPORU OLUŞTUR',
             onPressed: _generateRoomBasedPdf,
           ),
+          const SizedBox(height: 10),
+          _buildShareButton(
+            theme: theme,
+            label: 'PAYLAŞ',
+            onPressed: _generateRoomBasedPdf,
+          ),
         ],
         const SizedBox(height: 14),
         _buildExpertSupportButton(theme),
@@ -669,6 +684,8 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
   // HESAP
   // ---------------------------------------------------------------------------
   void _calculateExistingSystem() {
+    _hideKeyboard();
+
     if (_existingBuildingType == null) {
       _showSnack('Yapı tipi seçiniz.');
       return;
@@ -761,6 +778,8 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
   }
 
   void _calculateRoomBased() {
+    _hideKeyboard();
+
     if (_roomBuildingType == null) {
       _showSnack('Yapı tipi seçiniz.');
       return;
@@ -1566,6 +1585,8 @@ double _insulationFactor(String value) {
   }
 
   Future<void> _generateExistingPdf() async {
+    _hideKeyboard();
+
     if (_existingResult == null) {
       _showSnack('Önce mevcut sistem hesabını oluşturun.');
       return;
@@ -1574,10 +1595,18 @@ double _insulationFactor(String value) {
     try {
       final engine = TermoPdfEngineImpl();
       final bytes = await engine.generate(_buildExistingSystemPdfData());
+      final fileName =
+          'termo_plan_radyator_mevcut_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
-      await Printing.sharePdf(
-        bytes: Uint8List.fromList(bytes),
-        filename: 'termo_plan_radyator_mevcut_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(bytes),
+            mimeType: 'application/pdf',
+            name: fileName,
+          ),
+        ],
+        text: 'TermoPlan ile hazırladığım radyatör bazlı mevcut sistem raporunu paylaşıyorum.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -1586,6 +1615,8 @@ double _insulationFactor(String value) {
   }
 
   Future<void> _generateRoomBasedPdf() async {
+    _hideKeyboard();
+
     if (_roomBasedResult == null) {
       _showSnack('Önce oda bazlı hesabı oluşturun.');
       return;
@@ -1594,10 +1625,18 @@ double _insulationFactor(String value) {
     try {
       final engine = TermoPdfEngineImpl();
       final bytes = await engine.generate(_buildRoomBasedPdfData());
+      final fileName =
+          'termo_plan_radyator_oda_bazli_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
-      await Printing.sharePdf(
-        bytes: Uint8List.fromList(bytes),
-        filename: 'termo_plan_radyator_oda_bazli_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(bytes),
+            mimeType: 'application/pdf',
+            name: fileName,
+          ),
+        ],
+        text: 'TermoPlan ile hazırladığım radyatör bazlı oda hesabı raporunu paylaşıyorum.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -1634,7 +1673,44 @@ double _insulationFactor(String value) {
     );
   }
 
+
+  Widget _buildShareButton({
+    required _RadiatorTheme theme,
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: const Icon(Icons.ios_share_rounded),
+        label: Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 15,
+          ),
+        ),
+        style: ElevatedButton.styleFrom(
+          elevation: 0,
+          backgroundColor: theme.turquoise,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _hideKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   Future<void> _openExpertSupport() async {
+    _hideKeyboard();
+
     final uri = Uri.parse('https://wa.me/905307847260');
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
 

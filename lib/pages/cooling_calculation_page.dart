@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -84,6 +83,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   }
 
   void _calculate() {
+    FocusScope.of(context).unfocus();
     final area = double.tryParse(_areaController.text.replaceAll(',', '.'));
 
     if (_selectedProvince == null ||
@@ -276,20 +276,11 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   }
 
   Future<void> _openPdfPreview() async {
-    try {
-      final bytes = await _generatePdfBytes();
-      await Printing.layoutPdf(onLayout: (_) async => bytes);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PDF oluşturulurken bir hata oluştu.'),
-        ),
-      );
-    }
+    await _sharePdf();
   }
 
   Future<void> _sharePdf() async {
+    FocusScope.of(context).unfocus();
     try {
       final bytes = await _generatePdfBytes();
       final file = XFile.fromData(
@@ -313,6 +304,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   }
 
   Future<void> _openExpertSupport() async {
+    FocusScope.of(context).unfocus();
     final uri = Uri.parse('https://wa.me/905307847260');
 
     try {
@@ -357,10 +349,13 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   centerTitle: true,
   title: const SizedBox.shrink(),
 ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          child: Column(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _buildTopInfoCard(),
@@ -400,6 +395,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

@@ -1,8 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/calculation/heat_loss_engine.dart';
+import '../core/pdf/engine/termo_pdf_engine_impl.dart';
+import '../core/pdf/models/pdf_document_data.dart';
 import '../models/termo_models.dart';
 import 'radiator_heating_page.dart';
 import '../core/constants/termo_options.dart';
@@ -196,26 +200,116 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
     return '$advisory kW';
   }
 
-  Future<void> _shareResult() async {
+  Future<Uint8List> _generatePdfBytes() async {
     final result = _result;
-    if (result == null) return;
+    if (result == null) {
+      throw Exception('Sonuç bulunamadı');
+    }
 
-    final lines = <String>[
-      'TermoPlan Isıtma Hesabı Sonucu',
-      '',
-      'Alan: ${result.area.toStringAsFixed(result.area % 1 == 0 ? 0 : 1)} m²',
-      'İl: ${result.city}',
-      'Konum: ${result.locationSelectionLabel}',
-      'Yaklaşık ısı ihtiyacı: ${result.rawKw.toStringAsFixed(1)} kW',
-      'Önerilen kapasite: ${_recommendedCapacityText(result.rawKw)}',
-      'Tavsiye edilen kapasite: ${_advisoryCapacityText(result.rawKw, result.area)}',
-      '',
-      _sharePromoText,
-      if (_androidStoreUrl.isNotEmpty) 'Android: $_androidStoreUrl',
-      if (_iosStoreUrl.isNotEmpty) 'iOS: $_iosStoreUrl',
-    ];
+    final areaText = result.area.toStringAsFixed(result.area % 1 == 0 ? 0 : 1);
+    final recommendedText = _recommendedCapacityText(result.rawKw);
+    final advisoryText = _advisoryCapacityText(result.rawKw, result.area);
 
-    await Share.share(lines.join('\n'));
+    final data = PdfDocumentData(
+      type: PdfReportType.heating,
+      title: 'TermoPlan PDF Raporu',
+      subtitle: 'Isıtma Hesabı',
+      customer: PdfCustomerData(
+        city: result.city,
+        district: result.locationSelectionLabel,
+      ),
+      meta: PdfProjectMeta(
+        createdAt: DateTime.now(),
+        isPremium: true,
+        appName: 'TermoPlan',
+        reportCode: 'ISI-${DateTime.now().millisecondsSinceEpoch}',
+      ),
+      summary: PdfSummaryData(
+        mainResult:
+            'Yaklaşık ${result.rawKw.toStringAsFixed(1)} kW ısı ihtiyacı hesaplanmıştır.',
+        recommendedDevice: result.device.title,
+        recommendedCapacity: advisoryText,
+        highlights: [
+          PdfResultItem(label: 'Alan', value: areaText, unit: 'm²'),
+          PdfResultItem(label: 'İl', value: result.city),
+          PdfResultItem(label: 'Konum', value: result.locationSelectionLabel),
+        ],
+      ),
+      sections: [
+        PdfSectionData(
+          title: 'Giriş Bilgileri',
+          items: [
+            PdfResultItem(label: 'Yapı Tipi', value: result.housingType),
+            PdfResultItem(label: 'Cephe Sayısı', value: result.facadeCount),
+            PdfResultItem(label: 'Kat Durumu', value: result.floorType),
+            PdfResultItem(label: 'Cam Tipi', value: result.glassType),
+            PdfResultItem(label: 'Cam Alanı', value: result.windowArea),
+            PdfResultItem(
+              label: 'İzolasyon',
+              value: _insulationText(result.insulationLevel),
+            ),
+          ],
+        ),
+        PdfSectionData(
+          title: 'Isıtma Sonuçları',
+          items: [
+            PdfResultItem(
+              label: 'Yaklaşık Isı İhtiyacı',
+              value: result.rawKw.toStringAsFixed(1),
+              unit: 'kW',
+            ),
+            PdfResultItem(
+              label: 'Önerilen Kapasite',
+              value: recommendedText,
+            ),
+            PdfResultItem(
+              label: 'Tavsiye Edilen Kapasite',
+              value: advisoryText,
+              hint: 'Girilen şartlara göre güvenli seçim için değerlendirilecek kapasite.',
+            ),
+            PdfResultItem(label: 'Önerilen Cihaz', value: result.device.title),
+          ],
+        ),
+      ],
+      notes: [
+        result.device.subtitle,
+        'Bu rapor yaklaşık kapasite tespiti amacıyla oluşturulmuştur.',
+        'Mevcut radyatör metrajı kombi seçimini etkileyebilir; radyatör bazlı hesap ile teyit edilmesi önerilir.',
+        'Kesin cihaz seçimi için yerinde keşif ve uzman görüşü önerilir.',
+      ],
+    );
+
+    final engine = TermoPdfEngineImpl();
+    final bytes = await engine.generate(data);
+    return Uint8List.fromList(bytes);
+  }
+
+  Future<void> _openPdfPreview() async {
+    await _sharePdf();
+  }
+
+  Future<void> _sharePdf() async {
+    FocusScope.of(context).unfocus();
+
+    try {
+      final bytes = await _generatePdfBytes();
+      final file = XFile.fromData(
+        bytes,
+        mimeType: 'application/pdf',
+        name: 'termoplan_isitma_raporu.pdf',
+      );
+      await Share.shareXFiles(
+        [file],
+        text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('PDF paylaşılırken bir hata oluştu.');
+    }
+  }
+
+  Future<void> _shareResult() async {
+    await _sharePdf();
   }
 
   String _locationSelectionLabel() {
@@ -226,6 +320,7 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
   }
 
   void _calculate() {
+    FocusScope.of(context).unfocus();
     if (_selectedHousingType == null) {
       _showSnack('Lütfen yapı tipini seçin.');
       return;
@@ -326,6 +421,7 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
   }
 
   Future<void> _openExpertSupport() async {
+    FocusScope.of(context).unfocus();
     final uri = Uri.parse('https://wa.me/905307847260');
 
     try {
@@ -757,6 +853,30 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
       children: [
         SizedBox(
           width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _openPdfPreview,
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            label: const Text(
+              'PDF RAPOR',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _theme.orange,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: _shareResult,
             icon: const Icon(Icons.share_rounded),
@@ -886,8 +1006,11 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
         title: const SizedBox(),
         iconTheme: IconThemeData(color: _theme.textDark),
       ),
-      body: SafeArea(
-        child: ListView(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SafeArea(
+          child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
           children: [
             _buildHeroCard(),
@@ -1122,6 +1245,7 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
             _buildNoteCard(),
           ],
         ),
+      ),
       ),
     );
   }
