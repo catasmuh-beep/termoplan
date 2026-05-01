@@ -17,7 +17,7 @@ workflows:
     scripts:
       - flutter pub get
       - xcode-project use-profiles --project ios/*.xcodeproj
-      - flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+      - flutter build ipa --release --build-number=3 --export-options-plist=/Users/builder/export_options.plist
 
     artifacts:
       - build/ios/ipa/*.ipa
