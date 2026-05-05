@@ -1,9 +1,8 @@
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:share_plus/share_plus.dart';
+
 
 import '../core/pdf/engine/termo_pdf_engine_impl.dart';
 import '../core/pdf/models/pdf_document_data.dart';
@@ -994,45 +993,26 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     );
   }
 
-  Future<void> _sharePdfReport() async {
-    FocusScope.of(context).unfocus();
+ Future<void> _sharePdfReport() async {
+  FocusScope.of(context).unfocus();
 
-    final error = _validateInputs();
-    if (error != null) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
-      return;
-    }
-
-    try {
-      final engine = TermoPdfEngineImpl();
-      final bytes = await engine.generate(_buildUnderfloorPdfData());
-      final file = XFile.fromData(
-        Uint8List.fromList(bytes),
-        mimeType: 'application/pdf',
-        name: 'termo_plan_yerden_isitma_${DateTime.now().millisecondsSinceEpoch}.pdf',
-      );
-
-      final box = context.findRenderObject() as RenderBox;
-
-await Share.shareXFiles(
-  [file],
-  text: 'TermoPlan ile hazırladığım yerden ısıtma hesabı raporunu paylaşıyorum.',
-  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-);
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF paylaşılırken bir hata oluştu: $e'),
-        ),
-      );
-    }
+  final error = _validateInputs();
+  if (error != null) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error)),
+    );
+    return;
   }
 
+  if (!mounted) return;
+
+ ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
+    ),
+  );
+}
   Future<void> _shareCalculationSummary() async {
     await _sharePdfReport();
   }

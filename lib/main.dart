@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -6,10 +7,34 @@ import 'pages/heating_calculation_page.dart';
 import 'pages/radiator_heating_page.dart';
 import 'pages/underfloor_heating_page.dart';
 
-void main() {
-  runApp(const TermoPlanApp());
-}
+Future<void> main() async {
+  runZonedGuarded(() {
+    WidgetsFlutterBinding.ensureInitialized();
 
+    FlutterError.onError = (FlutterErrorDetails details) {
+      FlutterError.presentError(details);
+    };
+
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: Text(
+              'Uygulama başlatılırken hata oluştu',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
+    };
+
+    runApp(const TermoPlanApp());
+  }, (error, stackTrace) {
+    debugPrint('CRASH: $error');
+    debugPrint('$stackTrace');
+  });
+}
 class TermoPlanApp extends StatelessWidget {
   const TermoPlanApp({super.key});
 

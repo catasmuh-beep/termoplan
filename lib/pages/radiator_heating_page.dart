@@ -1,7 +1,4 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/pdf/engine/termo_pdf_engine_impl.dart';
@@ -89,18 +86,6 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
     super.dispose();
   }
 
-
-  Rect _shareOrigin() {
-    final overlay = Overlay.maybeOf(context);
-    final renderObject = overlay?.context.findRenderObject() ?? context.findRenderObject();
-    if (renderObject is RenderBox && renderObject.hasSize) {
-      final size = renderObject.size;
-      if (size.width > 0 && size.height > 0) {
-        return Rect.fromLTWH(0, 0, size.width, size.height);
-      }
-    }
-    return const Rect.fromLTWH(1, 1, 1, 1);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1605,27 +1590,13 @@ double _insulationFactor(String value) {
       return;
     }
 
-    try {
-      final engine = TermoPdfEngineImpl();
-      final bytes = await engine.generate(_buildExistingSystemPdfData());
-      final fileName =
-          'termo_plan_radyator_mevcut_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    if (!mounted) return;
 
-      await Share.shareXFiles(
-        [
-          XFile.fromData(
-            Uint8List.fromList(bytes),
-            mimeType: 'application/pdf',
-            name: fileName,
-          ),
-        ],
-        text: 'TermoPlan ile hazırladığım radyatör bazlı mevcut sistem raporunu paylaşıyorum.',
-        sharePositionOrigin: _shareOrigin(),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      _showSnack('PDF oluşturulamadı: $e');
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
+      ),
+    );
   }
 
   Future<void> _generateRoomBasedPdf() async {
@@ -1636,28 +1607,13 @@ double _insulationFactor(String value) {
       return;
     }
 
-    try {
-      final engine = TermoPdfEngineImpl();
-      final bytes = await engine.generate(_buildRoomBasedPdfData());
-      final fileName =
-          'termo_plan_radyator_oda_bazli_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    if (!mounted) return;
 
-
-     await Share.shareXFiles(
-  [
-    XFile.fromData(
-      Uint8List.fromList(bytes),
-      mimeType: 'application/pdf',
-      name: fileName,
-    ),
-  ],
-  text: 'TermoPlan ile hazırladığım radyatör bazlı oda hesabı raporunu paylaşıyorum.',
-  sharePositionOrigin: _shareOrigin(),
-);
-    } catch (e) {
-      if (!mounted) return;
-      _showSnack('PDF oluşturulamadı: $e');
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
+      ),
+    );
   }
 
   Widget _buildPdfButton({

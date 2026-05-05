@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/pdf/engine/termo_pdf_engine_impl.dart';
@@ -281,28 +280,14 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
 
   Future<void> _sharePdf() async {
     FocusScope.of(context).unfocus();
-    try {
-      final bytes = await _generatePdfBytes();
-      final file = XFile.fromData(
-        bytes,
-        mimeType: 'application/pdf',
-        name: 'termoplan_klima_raporu.pdf',
-      );
-      final box = context.findRenderObject() as RenderBox;
 
-await Share.shareXFiles(
-  [file],
-  text: 'TermoPlan ile hazırladığım ısıtma hesabı raporunu paylaşıyorum.',
-  sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
-);
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PDF paylaşılırken bir hata oluştu.'),
-        ),
-      );
-    }
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
+      ),
+    );
   }
 
   Future<void> _openExpertSupport() async {

@@ -1,6 +1,5 @@
 
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/calculation/heat_loss_engine.dart';
@@ -200,27 +199,12 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
   Future<void> _shareResult() async {
     FocusScope.of(context).unfocus();
 
-    final result = _result;
-    if (result == null) return;
+    if (!mounted) return;
 
-    final areaText = result.area.toStringAsFixed(result.area % 1 == 0 ? 0 : 1);
-    final heatNeedText = result.rawKw.toStringAsFixed(1);
-    final recommendedText = _advisoryCapacityText(result.rawKw, result.area);
-    final box = context.findRenderObject() as RenderBox;
-
-    final text = '''
-TermoPlan ile evimin yaklaşık ısı kaybı hesabını yaptım.
-
-Ev alanı: $areaText m²
-Yaklaşık ısı ihtiyacı: $heatNeedText kW
-Önerilen kombi kapasitesi: $recommendedText
-
-Sen de TermoPlan uygulamasını indirerek evinin ısıtma ve klima ihtiyacını kolayca hesaplayabilirsin.
-''';
-
-    await Share.share(
-      text,
-      sharePositionOrigin: box.localToGlobal(Offset.zero) & box.size,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
+      ),
     );
   }
 
