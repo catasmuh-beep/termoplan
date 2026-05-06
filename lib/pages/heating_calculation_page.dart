@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/calculation/termoplan_heat_core.dart';
 import '../core/calculation/heat_loss_engine.dart';
 import '../models/termo_models.dart';
 import 'radiator_heating_page.dart';
@@ -20,7 +21,7 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
   final TextEditingController _kat1Controller = TextEditingController();
   final TextEditingController _kat2Controller = TextEditingController();
 
-  final HeatLossEngine _heatLossEngine = const HeatLossEngine();
+  final TermoPlanHeatCore _heatCore = const TermoPlanHeatCore();
   final _theme = _TermoTheme();
 
   String? _selectedCity;
@@ -281,21 +282,21 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
     final selectedWindowArea = _selectedWindowArea!;
     final selectedInsulation = _selectedInsulation!;
 
-    final heatLoss = _heatLossEngine.calculate(
-      HeatLossRequest(
-        city: selectedCity,
-        location: _locationSelectionLabel(),
-        buildingType: selectedHousingType,
-        floorStatus: selectedFloorType,
-        facadeCount: selectedFacadeCount,
-        windowType: selectedGlassType,
-        windowArea: selectedWindowArea,
-        insulationLevel: _insulationText(selectedInsulation),
-        areaM2: area,
-      ),
-    );
+    final heatLoss = _heatCore.calculate(
+  TermoPlanHeatInput(
+    city: selectedCity,
+    location: _locationSelectionLabel(),
+    buildingType: selectedHousingType,
+    floorStatus: selectedFloorType,
+    facadeCount: selectedFacadeCount,
+    windowType: selectedGlassType,
+    windowArea: selectedWindowArea,
+    insulationLevel: _insulationText(selectedInsulation),
+    areaM2: area,
+  ),
+);
 
-    final rawKw = heatLoss.totalKw;
+final rawKw = heatLoss.totalKw;
     final device = _recommendDevice(rawKw, area);
 
     setState(() {
