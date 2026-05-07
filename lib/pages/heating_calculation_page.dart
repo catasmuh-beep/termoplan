@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/calculation/termoplan_heat_core.dart';
@@ -200,13 +201,32 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
   Future<void> _shareResult() async {
     FocusScope.of(context).unfocus();
 
-    if (!mounted) return;
+    if (_result == null) {
+      _showSnack('Önce ısıtma hesabını oluşturun.');
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
-      ),
-    );
+    final result = _result!;
+    final areaText = result.area.toStringAsFixed(result.area % 1 == 0 ? 0 : 1);
+    final message = StringBuffer()
+      ..writeln('TermoPlan Isıtma Hesabı')
+      ..writeln('')
+      ..writeln('Toplam alan: $areaText m²')
+      ..writeln('İl / Konum: ${result.city} / ${result.locationSelectionLabel}')
+      ..writeln('Hesaplanan ısı kaybı: ${result.rawKw.toStringAsFixed(1)} kW')
+      ..writeln('Önerilen kapasite: ${_advisoryCapacityText(result.rawKw, result.area)}')
+      ..writeln('Öneri: ${result.device.title}')
+      ..writeln('')
+      ..writeln(_sharePromoText);
+
+    if (_androidStoreUrl.isNotEmpty || _iosStoreUrl.isNotEmpty) {
+      message
+        ..writeln('')
+        ..writeln('Android: ${_androidStoreUrl.isEmpty ? '-' : _androidStoreUrl}')
+        ..writeln('iOS: ${_iosStoreUrl.isEmpty ? '-' : _iosStoreUrl}');
+    }
+
+    await Share.share(message.toString());
   }
 
   String _locationSelectionLabel() {

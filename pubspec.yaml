@@ -1,7 +1,7 @@
 name: termoplan
 description: "TermoPlan uygulaması"
 publish_to: 'none'
-version: 1.0.0+31
+version: 1.0.0+30
 
 environment:
   sdk: ^3.11.4
@@ -30,3 +30,4 @@ flutter:
    
   assets:
     - assets/header/
+    - assets/fonts/

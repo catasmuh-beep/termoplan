@@ -1,4 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/pdf/engine/termo_pdf_engine_impl.dart';
@@ -402,7 +409,7 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
           _buildPdfButton(
             theme: theme,
             label: 'PDF RAPORU OLUŞTUR',
-            onPressed: _generateExistingPdf,
+            onPressed: _previewExistingPdf,
           ),
           const SizedBox(height: 10),
           _buildShareButton(
@@ -661,7 +668,7 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
           _buildPdfButton(
             theme: theme,
             label: 'PDF RAPORU OLUŞTUR',
-            onPressed: _generateRoomBasedPdf,
+            onPressed: _previewRoomBasedPdf,
           ),
           const SizedBox(height: 10),
           _buildShareButton(
@@ -1582,6 +1589,54 @@ double _insulationFactor(String value) {
     );
   }
 
+
+  Future<void> _previewExistingPdf() async {
+    _hideKeyboard();
+
+    if (_existingResult == null) {
+      _showSnack('Önce mevcut sistem hesabını oluşturun.');
+      return;
+    }
+
+    await _previewPdfData(
+      data: _buildExistingSystemPdfData(),
+      documentName: 'TermoPlan Radyatör Mevcut Sistem Raporu',
+    );
+  }
+
+  Future<void> _previewRoomBasedPdf() async {
+    _hideKeyboard();
+
+    if (_roomBasedResult == null) {
+      _showSnack('Önce oda bazlı hesabı oluşturun.');
+      return;
+    }
+
+    await _previewPdfData(
+      data: _buildRoomBasedPdfData(),
+      documentName: 'TermoPlan Radyatör Oda Bazlı Raporu',
+    );
+  }
+
+  Future<void> _previewPdfData({
+    required PdfDocumentData data,
+    required String documentName,
+  }) async {
+    try {
+      final engine = TermoPdfEngineImpl();
+      final bytes = await engine.generate(data);
+      await Printing.layoutPdf(
+        name: documentName,
+        onLayout: (_) async => Uint8List.fromList(bytes),
+      );
+    } catch (e, st) {
+      debugPrint('PDF ÖNİZLEME HATASI: $e');
+      debugPrint('$st');
+      if (!mounted) return;
+      _showSnack('PDF önizleme oluşturulamadı: $e');
+    }
+  }
+
   Future<void> _generateExistingPdf() async {
     _hideKeyboard();
 
@@ -1590,12 +1645,10 @@ double _insulationFactor(String value) {
       return;
     }
 
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
-      ),
+    await _sharePdfData(
+      data: _buildExistingSystemPdfData(),
+      filePrefix: 'termoplan_radyator_mevcut',
+      shareText: 'TermoPlan radyatör bazlı mevcut sistem PDF raporu',
     );
   }
 
@@ -1607,13 +1660,50 @@ double _insulationFactor(String value) {
       return;
     }
 
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
-      ),
+    await _sharePdfData(
+      data: _buildRoomBasedPdfData(),
+      filePrefix: 'termoplan_radyator_oda_bazli',
+      shareText: 'TermoPlan radyatör bazlı oda hesabı PDF raporu',
     );
+  }
+
+  Future<void> _sharePdfData({
+    required PdfDocumentData data,
+    required String filePrefix,
+    required String shareText,
+  }) async {
+    try {
+      final engine = TermoPdfEngineImpl();
+      final bytes = await engine.generate(data);
+      final fileName = '${filePrefix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      if (kIsWeb) {
+        await Share.shareXFiles(
+          [
+            XFile.fromData(
+              Uint8List.fromList(bytes),
+              name: fileName,
+              mimeType: 'application/pdf',
+            ),
+          ],
+          text: shareText,
+        );
+      } else {
+        final directory = await getTemporaryDirectory();
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(bytes, flush: true);
+
+        await Share.shareXFiles(
+          [XFile(file.path, mimeType: 'application/pdf')],
+          text: shareText,
+        );
+      }
+    } catch (e, st) {
+      debugPrint('PDF PAYLAŞIM HATASI: $e');
+      debugPrint('$st');
+      if (!mounted) return;
+      _showSnack('PDF paylaşımı oluşturulamadı: $e');
+    }
   }
 
   Widget _buildPdfButton({

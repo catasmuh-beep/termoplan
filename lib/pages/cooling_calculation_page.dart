@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/pdf/engine/termo_pdf_engine_impl.dart';
@@ -22,6 +24,11 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   CoolingZoneType? _selectedZone;
   CoolingRoomType? _selectedRoom;
   CoolingDistrictData? _selectedDistrict;
+  int? _selectedFacadeCount;
+  CoolingWindowGlassType? _selectedWindowGlass;
+  CoolingWindowAreaType? _selectedWindowArea;
+  CoolingInsulationType? _selectedInsulation;
+  CoolingOrientationType? _selectedOrientation;
 
   int _extraPeopleCount = 0;
   CoolingCalculationResult? _result;
@@ -61,7 +68,6 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
     setState(() {
       _selectedProvince = value;
       _selectedDistrict = null;
-      _selectedRoom = null;
       _result = null;
 
       if (isMetro) {
@@ -88,6 +94,11 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
     if (_selectedProvince == null ||
         _selectedRoom == null ||
         _selectedZone == null ||
+        _selectedFacadeCount == null ||
+        _selectedWindowGlass == null ||
+        _selectedWindowArea == null ||
+        _selectedInsulation == null ||
+        _selectedOrientation == null ||
         area == null ||
         area <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -100,8 +111,14 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
 
     final result = CoolingData.calculate(
       area: area,
+      province: _selectedProvince!,
       zone: _selectedZone!,
       room: _selectedRoom!,
+      facadeCount: _selectedFacadeCount!,
+      windowArea: _selectedWindowArea!,
+      windowGlass: _selectedWindowGlass!,
+      insulation: _selectedInsulation!,
+      orientation: _selectedOrientation!,
       peopleCount: _extraPeopleCount,
     );
 
@@ -207,6 +224,11 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
             PdfResultItem(label: 'İl', value: _selectedProvince ?? '-'),
             PdfResultItem(label: 'İlçe', value: _locationLabel()),
             PdfResultItem(label: 'Oda Türü', value: _roomLabel()),
+            PdfResultItem(label: 'Cephe Sayısı', value: '${_selectedFacadeCount ?? '-'}'),
+            PdfResultItem(label: 'Yön', value: _selectedOrientation != null ? CoolingData.orientationLabel(_selectedOrientation!) : '-'),
+            PdfResultItem(label: 'Cam Tipi', value: CoolingData.windowGlassLabel(_selectedWindowGlass!)),
+            PdfResultItem(label: 'Cam Alanı', value: _selectedWindowArea != null ? CoolingData.windowAreaLabel(_selectedWindowArea!) : '-'),
+            PdfResultItem(label: 'İzolasyon Durumu', value: _selectedInsulation != null ? CoolingData.insulationLabel(_selectedInsulation!) : '-'),
             PdfResultItem(
               label: 'Alan',
               value: _areaController.text.replaceAll(',', '.'),
@@ -222,14 +244,13 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
           title: 'Klima Sonuçları',
           items: [
             PdfResultItem(
-              label: 'Bölge Katsayısı',
-              value: _result!.zoneCoefficient.toStringAsFixed(0),
-              hint: 'Seçilen il / ilçe / bölgeye göre belirlenmiştir.',
+              label: '4 Kişi İçin Hesaplanan Yük',
+              value: _formatNumber(_result!.structuralAdjustedLoadBtu),
+              unit: 'BTU',
             ),
             PdfResultItem(
-              label: 'Oda Çarpanı',
-              value: _result!.roomMultiplier.toStringAsFixed(2),
-              hint: 'Oda kullanım tipine göre uygulanmıştır.',
+              label: 'Ek Kişi Sayısı',
+              value: '$_extraPeopleCount',
             ),
             PdfResultItem(
               label: 'Ek Kişi Yükü',
@@ -275,19 +296,65 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
   }
 
   Future<void> _openPdfPreview() async {
-    await _sharePdf();
+    FocusScope.of(context).unfocus();
+
+    if (_result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce klima hesabını oluşturun.')),
+      );
+      return;
+    }
+
+    try {
+      final bytes = await _generatePdfBytes();
+      await Printing.layoutPdf(
+        name: 'TermoPlan Klima Raporu',
+        onLayout: (_) async => bytes,
+      );
+    } catch (e, st) {
+      debugPrint('PDF ÖNİZLEME HATASI: $e');
+      debugPrint('$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF önizleme oluşturulamadı: $e')),
+      );
+    }
   }
 
   Future<void> _sharePdf() async {
     FocusScope.of(context).unfocus();
 
-    if (!mounted) return;
+    if (_result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce klima hesabını oluşturun.')),
+      );
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
-      ),
-    );
+    try {
+      final bytes = await _generatePdfBytes();
+      final fileName =
+          'termoplan_klima_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            bytes,
+            name: fileName,
+            mimeType: 'application/pdf',
+          ),
+        ],
+        text: 'TermoPlan klima hesabı PDF raporu',
+      );
+    } catch (e, s) {
+      debugPrint('PDF HATASI: $e');
+      debugPrint('$s');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF paylaşımı oluşturulamadı: $e')),
+      );
+    }
   }
 
   Future<void> _openExpertSupport() async {
@@ -353,20 +420,53 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
                   children: [
                     _buildHeader(),
                     const SizedBox(height: 18),
-                    _buildProvinceDropdown(provinces),
-                    const SizedBox(height: 14),
-                    if (_selectedProvince != null && isMetro) ...[
-                      _buildDistrictDropdown(districts),
-                      const SizedBox(height: 14),
-                    ],
-                    if (_selectedProvince != null && !isMetro) ...[
-                      _buildZoneDropdown(zones),
-                      const SizedBox(height: 14),
-                    ],
-                    _buildRoomDropdown(),
-                    const SizedBox(height: 14),
-                    _buildAreaField(),
-                    const SizedBox(height: 14),
+                    _buildFormSection(
+                      icon: Icons.home_rounded,
+                      title: '1. Alan ve Oda Bilgisi',
+                      subtitle: 'Oda tipi, alan, cephe sayısı ve yön bilgisini seçin',
+                      children: [
+                        _buildRoomDropdown(),
+                        const SizedBox(height: 14),
+                        _buildAreaField(),
+                        const SizedBox(height: 14),
+                        _buildFacadeCountDropdown(),
+                        const SizedBox(height: 14),
+                        _buildOrientationDropdown(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFormSection(
+                      icon: Icons.location_on_rounded,
+                      title: '2. Konum Bilgisi',
+                      subtitle: 'Büyükşehirlerde ilçe, diğer illerde bölgesel seçim yapılır',
+                      children: [
+                        _buildProvinceDropdown(provinces),
+                        const SizedBox(height: 14),
+                        if (_selectedProvince != null && isMetro)
+                          _buildDistrictDropdown(districts)
+                        else if (_selectedProvince != null && !isMetro)
+                          _buildZoneDropdown(zones)
+                        else
+                          _buildDisabledSelectionField(
+                            label: 'İlçe / Bölge',
+                            prefixIcon: Icons.terrain_rounded,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFormSection(
+                      icon: Icons.grid_view_rounded,
+                      title: '3. Cam ve İzolasyon',
+                      subtitle: 'Cam tipi, cam alanı ve izolasyon kalitesini seçin',
+                      children: [
+                        _buildWindowGlassDropdown(),
+                        const SizedBox(height: 14),
+                        _buildWindowAreaDropdown(),
+                        const SizedBox(height: 14),
+                        _buildInsulationDropdown(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
                     _buildExtraPeopleSelector(),
                     const SizedBox(height: 18),
                     _buildWarningBox(),
@@ -463,6 +563,82 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
           ),
         ),
       ],
+    );
+  }
+
+
+  Widget _buildFormSection({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _softOrange,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(icon, color: _sunOrange, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: _dividerDark,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 12.8,
+                        height: 1.35,
+                        color: _lightText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDisabledSelectionField({
+    required String label,
+    required IconData prefixIcon,
+  }) {
+    return TextFormField(
+      enabled: false,
+      decoration: _inputDecoration(
+        label: label,
+        prefixIcon: prefixIcon,
+      ).copyWith(hintText: 'Seçiniz'),
     );
   }
 
@@ -574,6 +750,133 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
     );
   }
 
+
+  Widget _buildFacadeCountDropdown() {
+    return DropdownButtonFormField<int>(
+      menuMaxHeight: 320,
+      value: _selectedFacadeCount,
+      decoration: _inputDecoration(
+        label: 'Cephe Sayısı',
+        prefixIcon: Icons.crop_square_rounded,
+      ),
+      items: [0, 1, 2, 3, 4]
+          .map(
+            (value) => DropdownMenuItem<int>(
+              value: value,
+              child: Text(CoolingData.facadeCountLabel(value)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedFacadeCount = value;
+          _result = null;
+        });
+      },
+    );
+  }
+
+  Widget _buildOrientationDropdown() {
+    return DropdownButtonFormField<CoolingOrientationType>(
+      menuMaxHeight: 320,
+      value: _selectedOrientation,
+      decoration: _inputDecoration(
+        label: 'Yön',
+        prefixIcon: Icons.explore_rounded,
+      ),
+      items: CoolingOrientationType.values
+          .map(
+            (value) => DropdownMenuItem<CoolingOrientationType>(
+              value: value,
+              child: Text(CoolingData.orientationLabel(value)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedOrientation = value;
+          _result = null;
+        });
+      },
+    );
+  }
+
+  Widget _buildWindowGlassDropdown() {
+    return DropdownButtonFormField<CoolingWindowGlassType>(
+      menuMaxHeight: 320,
+      value: _selectedWindowGlass,
+      decoration: _inputDecoration(
+        label: 'Cam Tipi',
+        prefixIcon: Icons.grid_view_rounded,
+      ),
+      items: CoolingWindowGlassType.values
+          .map(
+            (value) => DropdownMenuItem<CoolingWindowGlassType>(
+              value: value,
+              child: Text(CoolingData.windowGlassLabel(value)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          _selectedWindowGlass = value;
+          _result = null;
+        });
+      },
+    );
+  }
+
+  Widget _buildWindowAreaDropdown() {
+    return DropdownButtonFormField<CoolingWindowAreaType>(
+      menuMaxHeight: 320,
+      value: _selectedWindowArea,
+      decoration: _inputDecoration(
+        label: 'Cam Alanı',
+        prefixIcon: Icons.crop_landscape_rounded,
+      ),
+      items: CoolingWindowAreaType.values
+          .map(
+            (value) => DropdownMenuItem<CoolingWindowAreaType>(
+              value: value,
+              child: Text(CoolingData.windowAreaLabel(value)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedWindowArea = value;
+          _result = null;
+        });
+      },
+    );
+  }
+
+  Widget _buildInsulationDropdown() {
+    return DropdownButtonFormField<CoolingInsulationType>(
+      menuMaxHeight: 320,
+      value: _selectedInsulation,
+      decoration: _inputDecoration(
+        label: 'İzolasyon Durumu',
+        prefixIcon: Icons.shield_rounded,
+      ),
+      items: CoolingInsulationType.values
+          .map(
+            (value) => DropdownMenuItem<CoolingInsulationType>(
+              value: value,
+              child: Text(CoolingData.insulationLabel(value)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedInsulation = value;
+          _result = null;
+        });
+      },
+    );
+  }
+
   Widget _buildExtraPeopleSelector() {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -601,7 +904,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
           ),
           const SizedBox(height: 10),
           const Text(
-            'Hesaplama bölgesel şartlar gözetilerek 4 kişilik standart aile baz alınarak yapılmıştır. Oda niteliğine göre ekstra kişi / misafir girişini aşağıdan yapınız.',
+            'Hesaplama bölgesel şartlar, oda tipi, cephe, cam ve izolasyon bilgileriyle 4 kişilik standart kullanım kabulüne göre yapılır. Standart kullanım üzerindeki ek kişi / misafir sayısını aşağıdan giriniz.',
             style: TextStyle(
               fontSize: 12.8,
               color: _lightText,
@@ -692,7 +995,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
           SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Hesaplama bölgesel şartlar gözetilerek 4 kişilik standart aile göz önünde bulundurularak yapılmıştır. Oda niteliğine göre kişi arttırımını aşağıdan yapınız.',
+              'Hesaplama 4 kişilik standart kullanım kabulüne göre yapılır. Standart kullanım üzerindeki her ek kişi için yaklaşık 500 BTU/h ilave yük eklenir.',
               style: TextStyle(
                 fontSize: 12.8,
                 height: 1.45,
@@ -856,15 +1159,12 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
                 ),
                 const SizedBox(height: 10),
                 _buildSummaryRow(
-                  'Bölge katsayısı',
-                  _result!.zoneCoefficient.toStringAsFixed(0),
+                  '4 kişi için hesaplanan yük',
+                  '${_formatNumber(_result!.structuralAdjustedLoadBtu)} BTU',
+                  isStrong: true,
                 ),
                 _buildSummaryRow(
-                  'Oda çarpanı',
-                  _result!.roomMultiplier.toStringAsFixed(2),
-                ),
-                _buildSummaryRow(
-                  'Ekstra kişi sayısı',
+                  'Ek kişi sayısı',
                   '$_extraPeopleCount',
                 ),
                 _buildSummaryRow(
@@ -876,13 +1176,6 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
                   '${_formatNumber(_result!.rawBtu)} BTU',
                   isStrong: true,
                 ),
-                if (!_isOver24kBtu)
-                  _buildSummaryRow(
-                    'Yuvarlanan öneri',
-                    '${_formatNumber(_result!.recommendedBtu)} BTU',
-                    isStrong: true,
-                    valueColor: _brandTeal,
-                  ),
                 _buildSummaryRow(
                   _capacitySummaryLabel(),
                   _displayCapacityText(),

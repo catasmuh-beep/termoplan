@@ -16,6 +16,31 @@ enum CoolingRoomType {
   bedRoom,
 }
 
+enum CoolingWindowAreaType {
+  az,
+  orta,
+  cok,
+}
+
+enum CoolingWindowGlassType {
+  tekCam,
+  ciftCam,
+  konforCamLowE,
+}
+
+enum CoolingInsulationType {
+  iyi,
+  orta,
+  zayif,
+}
+
+enum CoolingOrientationType {
+  kuzey,
+  dogu,
+  guney,
+  bati,
+}
+
 class CoolingDistrictData {
   final String name;
   final CoolingZoneType zone;
@@ -47,6 +72,14 @@ class CoolingCalculationResult {
   final int recommendedBtu;
   final double zoneCoefficient;
   final double roomMultiplier;
+  final int standardUsageLoadBtu;
+  final double facadeMultiplier;
+  final double windowAreaMultiplier;
+  final double windowGlassMultiplier;
+  final double insulationMultiplier;
+  final double orientationMultiplier;
+  final double structuralMultiplier;
+  final int structuralAdjustedLoadBtu;
   final int extraPeopleLoadBtu;
 
   const CoolingCalculationResult({
@@ -54,11 +87,21 @@ class CoolingCalculationResult {
     required this.recommendedBtu,
     required this.zoneCoefficient,
     required this.roomMultiplier,
+    required this.standardUsageLoadBtu,
+    required this.facadeMultiplier,
+    required this.windowAreaMultiplier,
+    required this.windowGlassMultiplier,
+    required this.insulationMultiplier,
+    required this.orientationMultiplier,
+    required this.structuralMultiplier,
+    required this.structuralAdjustedLoadBtu,
     required this.extraPeopleLoadBtu,
   });
 }
 
 class CoolingData {
+  static const int extraPersonLoadBtu = 500;
+
   static const List<int> standardBtuCapacities = [
     9000,
     12000,
@@ -76,6 +119,94 @@ class CoolingData {
     CoolingZoneType.coastal: 500,
   };
 
+
+  // Pik yaz sıcaklığı / soğutma yükü düzeltmesi.
+  // Amaç: aynı m² ve aynı oda tipinde Ağrı ile Adana gibi şehirlerin aynı sonucu vermesini engellemek.
+  // 1.00 = normal baz; 1.00 üstü daha sıcak pik yaz etkisi; 1.00 altı daha serin pik yaz etkisi.
+  static const Map<String, double> provincePeakSummerMultipliers = {
+    'Adana': 1.20,
+    'Adıyaman': 1.14,
+    'Afyonkarahisar': 0.94,
+    'Ağrı': 0.78,
+    'Aksaray': 1.02,
+    'Amasya': 1.02,
+    'Ankara': 1.00,
+    'Antalya': 1.18,
+    'Ardahan': 0.76,
+    'Artvin': 0.90,
+    'Aydın': 1.15,
+    'Balıkesir': 1.02,
+    'Bartın': 0.94,
+    'Batman': 1.18,
+    'Bayburt': 0.82,
+    'Bilecik': 0.96,
+    'Bingöl': 0.94,
+    'Bitlis': 0.84,
+    'Bolu': 0.88,
+    'Burdur': 0.98,
+    'Bursa': 1.00,
+    'Çanakkale': 0.98,
+    'Çankırı': 0.96,
+    'Çorum': 0.98,
+    'Denizli': 1.10,
+    'Diyarbakır': 1.15,
+    'Düzce': 0.94,
+    'Edirne': 1.00,
+    'Elazığ': 1.06,
+    'Erzincan': 0.96,
+    'Erzurum': 0.80,
+    'Eskişehir': 0.98,
+    'Gaziantep': 1.14,
+    'Giresun': 0.92,
+    'Gümüşhane': 0.86,
+    'Hakkâri': 0.84,
+    'Hatay': 1.17,
+    'Iğdır': 1.08,
+    'Isparta': 0.96,
+    'İstanbul': 0.98,
+    'İzmir': 1.10,
+    'Kahramanmaraş': 1.13,
+    'Karabük': 0.96,
+    'Karaman': 1.02,
+    'Kars': 0.78,
+    'Kastamonu': 0.90,
+    'Kayseri': 0.98,
+    'Kırıkkale': 1.00,
+    'Kırklareli': 0.96,
+    'Kırşehir': 1.00,
+    'Kilis': 1.16,
+    'Kocaeli': 0.98,
+    'Konya': 1.02,
+    'Kütahya': 0.94,
+    'Malatya': 1.06,
+    'Manisa': 1.12,
+    'Mardin': 1.18,
+    'Mersin': 1.18,
+    'Muğla': 1.12,
+    'Muş': 0.86,
+    'Nevşehir': 0.98,
+    'Niğde': 0.98,
+    'Ordu': 0.92,
+    'Osmaniye': 1.18,
+    'Rize': 0.90,
+    'Sakarya': 0.96,
+    'Samsun': 0.94,
+    'Siirt': 1.15,
+    'Sinop': 0.92,
+    'Sivas': 0.90,
+    'Şanlıurfa': 1.20,
+    'Şırnak': 1.16,
+    'Tekirdağ': 0.98,
+    'Tokat': 0.98,
+    'Trabzon': 0.90,
+    'Tunceli': 0.94,
+    'Uşak': 0.96,
+    'Van': 0.86,
+    'Yalova': 0.98,
+    'Yozgat': 0.94,
+    'Zonguldak': 0.92,
+  };
+
   static const Map<CoolingRoomType, double> roomMultipliers = {
     CoolingRoomType.hall: 0.90,
     CoolingRoomType.bedRoom: 0.95,
@@ -84,6 +215,89 @@ class CoolingData {
     CoolingRoomType.salon: 1.10,
     CoolingRoomType.kitchen: 1.20,
   };
+
+
+  static const Map<int, double> facadeCountMultipliers = {
+    0: 0.95,
+    1: 1.00,
+    2: 1.08,
+    3: 1.15,
+    4: 1.22,
+  };
+
+  static const Map<CoolingWindowAreaType, double> windowAreaMultipliers = {
+    CoolingWindowAreaType.az: 0.95,
+    CoolingWindowAreaType.orta: 1.00,
+    CoolingWindowAreaType.cok: 1.12,
+  };
+
+  static const Map<CoolingWindowGlassType, double> windowGlassMultipliers = {
+    CoolingWindowGlassType.tekCam: 1.10,
+    CoolingWindowGlassType.ciftCam: 1.00,
+    CoolingWindowGlassType.konforCamLowE: 0.92,
+  };
+
+  static const Map<CoolingInsulationType, double> insulationMultipliers = {
+    CoolingInsulationType.iyi: 0.90,
+    CoolingInsulationType.orta: 1.00,
+    CoolingInsulationType.zayif: 1.15,
+  };
+
+  static const Map<CoolingOrientationType, double> orientationMultipliers = {
+    CoolingOrientationType.kuzey: 0.95,
+    CoolingOrientationType.dogu: 1.00,
+    CoolingOrientationType.guney: 1.08,
+    CoolingOrientationType.bati: 1.12,
+  };
+
+
+  static String facadeCountLabel(int count) => '$count Cephe';
+
+  static String windowAreaLabel(CoolingWindowAreaType value) {
+    switch (value) {
+      case CoolingWindowAreaType.az:
+        return 'Az';
+      case CoolingWindowAreaType.orta:
+        return 'Orta';
+      case CoolingWindowAreaType.cok:
+        return 'Çok';
+    }
+  }
+
+  static String windowGlassLabel(CoolingWindowGlassType value) {
+    switch (value) {
+      case CoolingWindowGlassType.tekCam:
+        return 'Tek Cam';
+      case CoolingWindowGlassType.ciftCam:
+        return 'Çift Cam';
+      case CoolingWindowGlassType.konforCamLowE:
+        return 'Konfor Cam (Low-E)';
+    }
+  }
+
+  static String insulationLabel(CoolingInsulationType value) {
+    switch (value) {
+      case CoolingInsulationType.iyi:
+        return 'İyi';
+      case CoolingInsulationType.orta:
+        return 'Orta';
+      case CoolingInsulationType.zayif:
+        return 'Zayıf';
+    }
+  }
+
+  static String orientationLabel(CoolingOrientationType value) {
+    switch (value) {
+      case CoolingOrientationType.kuzey:
+        return 'Kuzey';
+      case CoolingOrientationType.dogu:
+        return 'Doğu';
+      case CoolingOrientationType.guney:
+        return 'Güney';
+      case CoolingOrientationType.bati:
+        return 'Batı';
+    }
+  }
 
   static String zoneLabel(CoolingZoneType zone) {
     switch (zone) {
@@ -124,23 +338,59 @@ class CoolingData {
 
   static CoolingCalculationResult calculate({
     required double area,
+    required String province,
     required CoolingZoneType zone,
     required CoolingRoomType room,
+    required int facadeCount,
+    required CoolingWindowAreaType windowArea,
+    required CoolingWindowGlassType windowGlass,
+    required CoolingInsulationType insulation,
+    required CoolingOrientationType orientation,
     required int peopleCount,
   }) {
-    final zoneCoefficient = zoneCoefficients[zone]!;
+    final baseZoneCoefficient = zoneCoefficients[zone]!;
+    final provincePeakMultiplier = provincePeakSummerMultipliers[province] ?? 1.00;
+    final effectiveZoneCoefficient = baseZoneCoefficient * provincePeakMultiplier;
     final roomMultiplier = roomMultipliers[room]!;
-    final extraPeople = max(0, peopleCount);
-    final extraPeopleLoad = extraPeople * 2050;
 
-    final raw = ((area * zoneCoefficient * roomMultiplier) + extraPeopleLoad).round();
+    final safeFacadeCount = facadeCount.clamp(0, 4);
+    final facadeMultiplier = facadeCountMultipliers[safeFacadeCount]!;
+    final windowAreaMultiplier = windowAreaMultipliers[windowArea]!;
+    final windowGlassMultiplier = windowGlassMultipliers[windowGlass]!;
+    final insulationMultiplier = insulationMultipliers[insulation]!;
+    final orientationMultiplier = orientationMultipliers[orientation]!;
+
+    final standardUsageLoad =
+        (area * effectiveZoneCoefficient * roomMultiplier).round();
+
+    final structuralMultiplier = facadeMultiplier *
+        windowAreaMultiplier *
+        windowGlassMultiplier *
+        insulationMultiplier *
+        orientationMultiplier;
+
+    final structuralAdjustedLoad =
+        (standardUsageLoad * structuralMultiplier).round();
+
+    final extraPeople = max(0, peopleCount);
+    final extraPeopleLoad = extraPeople * extraPersonLoadBtu;
+
+    final raw = structuralAdjustedLoad + extraPeopleLoad;
     final recommended = ceilToStandardBtu(raw);
 
     return CoolingCalculationResult(
       rawBtu: raw,
       recommendedBtu: recommended,
-      zoneCoefficient: zoneCoefficient,
+      zoneCoefficient: effectiveZoneCoefficient,
       roomMultiplier: roomMultiplier,
+      standardUsageLoadBtu: standardUsageLoad,
+      facadeMultiplier: facadeMultiplier,
+      windowAreaMultiplier: windowAreaMultiplier,
+      windowGlassMultiplier: windowGlassMultiplier,
+      insulationMultiplier: insulationMultiplier,
+      orientationMultiplier: orientationMultiplier,
+      structuralMultiplier: structuralMultiplier,
+      structuralAdjustedLoadBtu: structuralAdjustedLoad,
       extraPeopleLoadBtu: extraPeopleLoad,
     );
   }

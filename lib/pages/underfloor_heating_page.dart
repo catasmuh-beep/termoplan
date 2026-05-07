@@ -1,6 +1,12 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 
@@ -993,6 +999,37 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     );
   }
 
+
+ Future<void> _previewPdfReport() async {
+  FocusScope.of(context).unfocus();
+
+  final error = _validateInputs();
+  if (error != null) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(error)),
+    );
+    return;
+  }
+
+  try {
+    final data = _buildUnderfloorPdfData();
+    final engine = TermoPdfEngineImpl();
+    final bytes = await engine.generate(data);
+    await Printing.layoutPdf(
+      name: 'TermoPlan Yerden Isıtma Raporu',
+      onLayout: (_) async => Uint8List.fromList(bytes),
+    );
+  } catch (e, st) {
+    debugPrint('PDF ÖNİZLEME HATASI: $e');
+    debugPrint('$st');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF önizleme oluşturulamadı: $e')),
+    );
+  }
+}
+
  Future<void> _sharePdfReport() async {
   FocusScope.of(context).unfocus();
 
@@ -1005,13 +1042,41 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     return;
   }
 
-  if (!mounted) return;
+  try {
+    final data = _buildUnderfloorPdfData();
+    final engine = TermoPdfEngineImpl();
+    final bytes = await engine.generate(data);
+    final fileName = 'termoplan_yerden_isitma_${DateTime.now().millisecondsSinceEpoch}.pdf';
 
- ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('Paylaşım özelliği iOS test sürümünde geçici olarak kapatıldı.'),
-    ),
-  );
+    if (kIsWeb) {
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            Uint8List.fromList(bytes),
+            name: fileName,
+            mimeType: 'application/pdf',
+          ),
+        ],
+        text: 'TermoPlan yerden ısıtma PDF raporu',
+      );
+    } else {
+      final directory = await getTemporaryDirectory();
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(bytes, flush: true);
+
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf')],
+        text: 'TermoPlan yerden ısıtma PDF raporu',
+      );
+    }
+  } catch (e, st) {
+    debugPrint('PDF PAYLAŞIM HATASI: $e');
+    debugPrint('$st');
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('PDF paylaşımı oluşturulamadı: $e')),
+    );
+  }
 }
   Future<void> _shareCalculationSummary() async {
     await _sharePdfReport();
@@ -1920,8 +1985,9 @@ String? _validateInputs() {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -1930,8 +1996,8 @@ String? _validateInputs() {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  theme.orange,
-                  theme.turquoise,
+                  const Color(0xff00917E),
+                  const Color(0xff00BFA5),
                 ],
               ),
               borderRadius: BorderRadius.circular(22),
@@ -2022,8 +2088,8 @@ String? _validateInputs() {
                   title: isHighCapacity ? 'Sistem Tipi' : 'Önerilen',
                   value: mainCapacityValue,
                   icon: Icons.local_fire_department_rounded,
-                  bgColor: theme.softRedStrong,
-                  color: theme.redText,
+                  bgColor: const Color(0xffE6F7F3),
+                  color: const Color(0xff00917E),
                 ),
               ),
             ],
@@ -2046,8 +2112,8 @@ String? _validateInputs() {
                 ? 'Duvar Tipi Yoğuşmalı Kazan'
                 : '$mainCapacityValue Yoğuşmalı Kombi',
             subtitle: mainCapacitySubtitle,
-            color: theme.redText,
-            bgColor: theme.softRedStrong,
+            color: const Color(0xff00917E),
+            bgColor: const Color(0xffE6F7F3),
             icon: Icons.thermostat_rounded,
           ),
           if (_advisoryCapacityKw != null) ...[
@@ -2056,8 +2122,8 @@ String? _validateInputs() {
               title: 'Tavsiye Edilen Üst Kapasite',
               value: _advisoryCapacityText,
               subtitle: '%70 barem eşiği geçildiği için üst kademe opsiyonu',
-              color: theme.redText,
-              bgColor: theme.softRedStrong,
+              color: const Color(0xffF57C00),
+              bgColor: const Color(0xffFFF4E5),
               icon: Icons.trending_up_rounded,
             ),
           ],
@@ -2096,7 +2162,7 @@ String? _validateInputs() {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: theme.softPetrol,
+              color: const Color(0xffF1F5F9),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Text(
@@ -2113,7 +2179,7 @@ String? _validateInputs() {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _sharePdfReport,
+              onPressed: _previewPdfReport,
               icon: const Icon(Icons.picture_as_pdf_rounded),
               label: const Text(
                 'PDF RAPOR',
@@ -2609,8 +2675,9 @@ class _ResultMetricTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
           Container(
             width: 38,
             height: 38,
@@ -2620,7 +2687,7 @@ class _ResultMetricTile extends StatelessWidget {
             ),
             child: Icon(icon, color: color, size: 23),
           ),
-          const Spacer(),
+          const SizedBox(height: 14),
           Text(
             title,
             maxLines: 1,

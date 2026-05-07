@@ -1,6 +1,6 @@
 import '../models/radiator_models.dart';
 
-const double radiatorWattPerMeter = 1400.0;
+const double radiatorWattPerMeter = 1700.0;
 
 double round1(double value) => double.parse(value.toStringAsFixed(1));
 
