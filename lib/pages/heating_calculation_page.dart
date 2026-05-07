@@ -39,8 +39,10 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
 
   static const List<int> _capacitySteps = [24, 28, 30, 35, 42, 45];
   static const String _sharePromoText =
-      'Marketten TermoPlan uygulamasını indirdim, bence sen de denemelisin. '
-      'Artık ısıtma ve soğutma hesabında işim çok daha kolay.';
+      'Yeni bir uygulama buldum: TermoPlan. '
+      'Evimin yaklaşık kaç kW kombi ihtiyacı olduğunu hesaplayabiliyorum. '
+      'Ayrıca klima ihtiyacı, yerden ısıtma ve radyatör hesapları gibi modüllerle '
+      'ısı kaybımı ve tesisat ihtiyacımı daha pratik şekilde değerlendirebiliyorum.';
   static const String _androidStoreUrl = '';
   static const String _iosStoreUrl = '';
 
@@ -226,7 +228,14 @@ class _HeatingCalculationPageState extends State<HeatingCalculationPage> {
         ..writeln('iOS: ${_iosStoreUrl.isEmpty ? '-' : _iosStoreUrl}');
     }
 
-    await Share.share(message.toString());
+    final box = context.findRenderObject() as RenderBox?;
+
+    await Share.share(
+      message.toString(),
+      sharePositionOrigin: box != null
+          ? box.localToGlobal(Offset.zero) & box.size
+          : null,
+    );
   }
 
   String _locationSelectionLabel() {
