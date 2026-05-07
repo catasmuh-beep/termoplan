@@ -94,6 +94,16 @@ class _RadiatorHeatingPageState extends State<RadiatorHeatingPage>
   }
 
 
+  Rect _shareOrigin() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize && !renderObject.size.isEmpty) {
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      return topLeft & renderObject.size;
+    }
+    return const Rect.fromLTWH(1, 1, 1, 1);
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final theme = _RadiatorTheme();
@@ -1622,19 +1632,11 @@ double _insulationFactor(String value) {
     required PdfDocumentData data,
     required String documentName,
   }) async {
-    try {
-      final engine = TermoPdfEngineImpl();
-      final bytes = await engine.generate(data);
-      await Printing.layoutPdf(
-        name: documentName,
-        onLayout: (_) async => Uint8List.fromList(bytes),
-      );
-    } catch (e, st) {
-      debugPrint('PDF ÖNİZLEME HATASI: $e');
-      debugPrint('$st');
-      if (!mounted) return;
-      _showSnack('PDF önizleme oluşturulamadı: $e');
-    }
+    await _sharePdfData(
+      data: data,
+      filePrefix: 'termoplan_radyator_rapor',
+      shareText: documentName,
+    );
   }
 
   Future<void> _generateExistingPdf() async {
@@ -1687,6 +1689,7 @@ double _insulationFactor(String value) {
             ),
           ],
           text: shareText,
+          sharePositionOrigin: _shareOrigin(),
         );
       } else {
         final directory = await getTemporaryDirectory();
@@ -1696,6 +1699,7 @@ double _insulationFactor(String value) {
         await Share.shareXFiles(
           [XFile(file.path, mimeType: 'application/pdf')],
           text: shareText,
+          sharePositionOrigin: _shareOrigin(),
         );
       }
     } catch (e, st) {

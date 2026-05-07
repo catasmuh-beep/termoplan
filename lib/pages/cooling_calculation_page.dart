@@ -173,6 +173,15 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
     return CoolingData.roomLabel(_selectedRoom!);
   }
 
+  Rect _shareOrigin() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize && !renderObject.size.isEmpty) {
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      return topLeft & renderObject.size;
+    }
+    return const Rect.fromLTWH(1, 1, 1, 1);
+  }
+
   Future<Uint8List> _generatePdfBytes() async {
     if (_result == null) {
       throw Exception('Sonuç bulunamadı');
@@ -307,16 +316,26 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
 
     try {
       final bytes = await _generatePdfBytes();
-      await Printing.layoutPdf(
-        name: 'TermoPlan Klima Raporu',
-        onLayout: (_) async => bytes,
+      final fileName =
+          'termoplan_klima_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      await Share.shareXFiles(
+        [
+          XFile.fromData(
+            bytes,
+            name: fileName,
+            mimeType: 'application/pdf',
+          ),
+        ],
+        text: 'TermoPlan klima hesabı PDF raporu',
+        sharePositionOrigin: _shareOrigin(),
       );
     } catch (e, st) {
-      debugPrint('PDF ÖNİZLEME HATASI: $e');
+      debugPrint('PDF RAPOR HATASI: $e');
       debugPrint('$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF önizleme oluşturulamadı: $e')),
+        SnackBar(content: Text('PDF raporu oluşturulamadı: $e')),
       );
     }
   }
@@ -345,6 +364,7 @@ class _CoolingCalculationPageState extends State<CoolingCalculationPage> {
           ),
         ],
         text: 'TermoPlan klima hesabı PDF raporu',
+        sharePositionOrigin: _shareOrigin(),
       );
     } catch (e, s) {
       debugPrint('PDF HATASI: $e');

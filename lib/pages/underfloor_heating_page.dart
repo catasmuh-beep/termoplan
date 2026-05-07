@@ -366,6 +366,15 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
     super.dispose();
   }
 
+  Rect _shareOrigin() {
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox && renderObject.hasSize && !renderObject.size.isEmpty) {
+      final topLeft = renderObject.localToGlobal(Offset.zero);
+      return topLeft & renderObject.size;
+    }
+    return const Rect.fromLTWH(1, 1, 1, 1);
+  }
+
   bool get _isDubleks => _buildingType == BuildingType.dubleks;
   bool get _isMetro => _selectedCity != null && _metroDistricts.containsKey(_selectedCity);
   bool get _isCoastal => _selectedCity != null && _coastalCities.contains(_selectedCity);
@@ -1001,33 +1010,7 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
 
 
  Future<void> _previewPdfReport() async {
-  FocusScope.of(context).unfocus();
-
-  final error = _validateInputs();
-  if (error != null) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(error)),
-    );
-    return;
-  }
-
-  try {
-    final data = _buildUnderfloorPdfData();
-    final engine = TermoPdfEngineImpl();
-    final bytes = await engine.generate(data);
-    await Printing.layoutPdf(
-      name: 'TermoPlan Yerden Isıtma Raporu',
-      onLayout: (_) async => Uint8List.fromList(bytes),
-    );
-  } catch (e, st) {
-    debugPrint('PDF ÖNİZLEME HATASI: $e');
-    debugPrint('$st');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('PDF önizleme oluşturulamadı: $e')),
-    );
-  }
+  await _sharePdfReport();
 }
 
  Future<void> _sharePdfReport() async {
@@ -1058,6 +1041,7 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
           ),
         ],
         text: 'TermoPlan yerden ısıtma PDF raporu',
+        sharePositionOrigin: _shareOrigin(),
       );
     } else {
       final directory = await getTemporaryDirectory();
@@ -1067,6 +1051,7 @@ class _UnderfloorHeatingPageState extends State<UnderfloorHeatingPage> {
       await Share.shareXFiles(
         [XFile(file.path, mimeType: 'application/pdf')],
         text: 'TermoPlan yerden ısıtma PDF raporu',
+        sharePositionOrigin: _shareOrigin(),
       );
     }
   } catch (e, st) {
